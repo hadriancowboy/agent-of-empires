@@ -7533,3 +7533,31 @@ impl HomeView {
             .map(|_| ())
     }
 }
+
+#[cfg(test)]
+mod permission_response_tokens_tests {
+    use super::*;
+    use crate::agents::{KeyToken, PermissionResponse};
+    use crate::tui::dialogs::PermissionResponseChoice;
+
+    #[test]
+    fn maps_each_choice_to_its_own_field() {
+        let response = PermissionResponse {
+            allow: &[KeyToken::Literal("1")],
+            allow_always: &[KeyToken::Literal("2")],
+            deny: &[KeyToken::Literal("3")],
+        };
+        assert_eq!(
+            permission_response_tokens(&response, PermissionResponseChoice::Allow),
+            response.allow
+        );
+        assert_eq!(
+            permission_response_tokens(&response, PermissionResponseChoice::AllowAlways),
+            response.allow_always
+        );
+        assert_eq!(
+            permission_response_tokens(&response, PermissionResponseChoice::Deny),
+            response.deny
+        );
+    }
+}

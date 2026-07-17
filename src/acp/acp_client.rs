@@ -14274,7 +14274,6 @@ done
                 tool_call_id,
                 is_error,
                 content,
-                completed_at: _,
                 ..
             } => {
                 assert_eq!(tool_call_id, "tc-1");

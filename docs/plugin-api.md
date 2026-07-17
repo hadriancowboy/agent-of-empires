@@ -19,10 +19,10 @@ A manifest carries two independent version axes.
 
 | Key | Meaning |
 |---|---|
-| `api_version` | The manifest *schema* version. The current schema is `13`. The host rejects a manifest whose `api_version` is newer than it supports. Bump it as you adopt newer sections (see below). |
+| `api_version` | The manifest *schema* version. The current schema is `14`. The host rejects a manifest whose `api_version` is newer than it supports. Bump it as you adopt newer sections (see below). |
 | `aoe_version` | A semver requirement on the *host app* version, e.g. `">=1.11.0, <2.0.0"`. The host refuses to install, and skips loading, a plugin whose requirement excludes the running version. Optional; requires `api_version >= 4`. |
 
-Schema additions by `api_version`: `2` added contributions (commands, keybinds, settings, ui), `3` added the `pane` UI slot, `4` added `status` and `aoe_version`, `5` added `screenshots`, `6` added a command `action`, `7` added identity icons, `8` added the `composer-action` UI slot, `9` added session-driving worker RPCs (see [Session-driving RPCs](#session-driving-rpcs)), plugin-private storage, and the `dynamic_select` / `object_list` / `cron` settings widgets, `10` added the `tool-card-badge` UI slot, `11` added the `acp.capabilities.probe` RPC + capability, a `thinking` (thought-level) list on the capability response, the `dynamic_multi_select` object-list field widget, and an optional `project_path` (empty = scratch session), `extra_project_paths`, and a `sandbox` flag on `sessions.create`, plus a `multiline` attribute for `string` settings fields, `12` grew the pane block vocabulary (see [Pane payload](#pane-payload)): the `callout`, `bar` and `columns` kinds, clickable `row`s carrying `params`, header summaries and scrollable bodies on `section`, `disabled` / `variant` / `href` on `action`, and a pane-level `footer`, `13` added the global `home-pane` UI slot (a host-wide docked pane carrying the same block vocabulary as `pane`) and the `sparkline` block kind (a history plot with optional per-sample `bands` coloring).
+Schema additions by `api_version`: `2` added contributions (commands, keybinds, settings, ui), `3` added the `pane` UI slot, `4` added `status` and `aoe_version`, `5` added `screenshots`, `6` added a command `action`, `7` added identity icons, `8` added the `composer-action` UI slot, `9` added session-driving worker RPCs (see [Session-driving RPCs](#session-driving-rpcs)), plugin-private storage, and the `dynamic_select` / `object_list` / `cron` settings widgets, `10` added the `tool-card-badge` UI slot, `11` added the `acp.capabilities.probe` RPC + capability, a `thinking` (thought-level) list on the capability response, the `dynamic_multi_select` object-list field widget, and an optional `project_path` (empty = scratch session), `extra_project_paths`, and a `sandbox` flag on `sessions.create`, plus a `multiline` attribute for `string` settings fields, `12` grew the pane block vocabulary (see [Pane payload](#pane-payload)): the `callout`, `bar` and `columns` kinds, clickable `row`s carrying `params`, header summaries and scrollable bodies on `section`, `disabled` / `variant` / `href` on `action`, and a pane-level `footer`, `13` added the global `home-pane` UI slot (a host-wide docked pane carrying the same block vocabulary as `pane`) and the `sparkline` block kind (a history plot with optional per-sample `bands` coloring), and `14` added branch transforms.
 
 ## Top-level fields
 
@@ -30,7 +30,7 @@ Schema additions by `api_version`: `2` added contributions (commands, keybinds, 
 id = "dev.example.my-plugin"
 name = "My Plugin"
 version = "0.1.0"
-api_version = 8
+api_version = 14
 aoe_version = ">=1.11.0, <2.0.0"
 description = "What the plugin does."
 capabilities = ["runtime.worker"]
@@ -41,12 +41,13 @@ capabilities = ["runtime.worker"]
 | `id` | string | yes | Plugin id (see [Plugin id](#plugin-id)). Namespaces config, events, and action names. |
 | `name` | string | yes | Human-readable display name. |
 | `version` | string | yes | Semantic version of the plugin. |
-| `api_version` | integer | yes | Manifest schema version, `1` to `13`. |
+| `api_version` | integer | yes | Manifest schema version, `1` to `14`. |
 | `description` | string | no | Shown in plugin listings. Defaults to empty. |
 | `aoe_version` | string | no | Host-app semver requirement. Requires `api_version >= 4`. |
 | `capabilities` | array of string | no | Runtime grants the worker needs (see [Capabilities](#capabilities)). Static contributions need none. |
 | `screenshots` | array | no | Up to 8. Requires `api_version >= 5`. See [Screenshots](#screenshots). |
 | `setting_defaults` | table | no | Overrides for core host settings, keyed by canonical path (e.g. `"theme.idle_decay_minutes"`). Resolution is user value, then plugin override, then core default. |
+| `branch_transforms` | array | no | Ordered replacements for title-derived worktree branches. Requires `api_version >= 14`. See [Branch transforms](#branch-transforms). |
 
 ## Plugin id
 
@@ -87,6 +88,34 @@ themes, ui, status) need no capability.
 | `session.unattended` | Creating a session in a host-classified *unattended* approval mode. A distinct, high-severity grant, never implied by `session.create` or `session.prompt` (`api_version >= 9`). See [Session-driving RPCs](#session-driving-rpcs). |
 
 A capability this host version does not recognize is rejected, not granted.
+
+## Branch transforms
+
+Branch transforms are ordered Rust-regex replacements applied when AoE derives a
+worktree branch from a new session title. They are static manifest contributions;
+no worker or runtime capability is required.
+
+```toml
+[[branch_transforms]]
+pattern = "^([^-]+)-(.+)$"
+replacement = "$1/$2"
+```
+
+Each rule replaces only its first match, then passes the result to the next rule
+in manifest order. Replacements support Rust regex captures such as `$1`,
+`${1}`, `$name`, and `${name}`. A manifest may declare at most 32 rules; each
+pattern and replacement is limited to 4096 UTF-8 bytes. The final branch is
+limited to 1024 bytes and must be a valid Git branch name.
+
+Transforms run after core slugifies the title and before collision suffixing.
+For example, `chore: update deps` first becomes `chore-update-deps`, the rule
+above changes it to `chore/update-deps`, and a collision may then produce
+`chore/update-deps-2`. Explicit branch overrides always bypass transforms.
+
+Only one active plugin may contribute branch transforms. If multiple active
+plugins declare them, session creation fails with a conflict instead of choosing
+an implicit precedence. Install consent discloses branch transforms, and any
+addition, removal, edit, or reordering requires fresh approval on update.
 
 ## Commands
 
