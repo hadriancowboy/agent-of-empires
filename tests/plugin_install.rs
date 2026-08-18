@@ -300,7 +300,7 @@ async fn reapprove_regrants_the_installed_manifest() {
 id = "acme.regrant"
 name = "Regrant"
 version = "0.1.0"
-api_version = 2
+api_version = 14
 capabilities = ["net"]
 "#,
     );
@@ -312,10 +312,11 @@ capabilities = ["net"]
         .unwrap()
         .join("acme.regrant")
         .join("aoe-plugin.toml");
-    let text = std::fs::read_to_string(&installed).unwrap().replace(
+    let mut text = std::fs::read_to_string(&installed).unwrap().replace(
         "capabilities = [\"net\"]",
         "capabilities = [\"net\", \"notifications\"]",
     );
+    text.push_str("\n[[branch_transforms]]\npattern = '-'\nreplacement = '/'\n");
     std::fs::write(&installed, text).unwrap();
     agent_of_empires::plugin::reload_registry();
     assert!(load_registry()
@@ -325,6 +326,7 @@ capabilities = ["net"]
 
     let consent = install::reapprove_consent("acme.regrant").unwrap();
     assert_eq!(consent.capabilities, vec!["net", "notifications"]);
+    assert!(consent.uses_branch_transforms);
 
     // A pin that no longer matches the on-disk manifest refuses.
     let err = install::approve_installed("acme.regrant", "sha256:stale")

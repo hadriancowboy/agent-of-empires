@@ -1110,6 +1110,8 @@ pub struct ReapproveConsent {
     pub capabilities: Vec<String>,
     /// Dashboard UI slots the installed manifest contributes to.
     pub ui: Vec<UiView>,
+    /// The installed plugin can transform title-derived branch names.
+    pub uses_branch_transforms: bool,
     /// Pin: the installed manifest's hash. `approve_installed` refuses if the
     /// manifest on disk changed after this disclosure was shown.
     pub manifest_hash: String,
@@ -1156,6 +1158,7 @@ pub fn reapprove_consent(id: &str) -> Result<ReapproveConsent> {
                 id: u.id.clone(),
             })
             .collect(),
+        uses_branch_transforms: !plugin.manifest.branch_transforms.is_empty(),
         manifest_hash: plugin.manifest_hash.clone(),
     })
 }

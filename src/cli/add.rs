@@ -214,9 +214,7 @@ pub async fn run(profile: &str, args: AddArgs) -> Result<()> {
         bail!("--repo/--project requires --worktree\nTip: aoe add /path --project repoB -w branch-name");
     }
 
-    if !args.repo_bases.is_empty() && explicit_worktree_branch(&args).is_none() {
-        bail!("--repo-base requires --worktree to specify a branch\nTip: aoe add /path --project repoB -w branch-name --repo-base repoB=develop");
-    }
+    reject_repo_bases_without_worktree(&args)?;
 
     let resolved_project_paths: Vec<PathBuf> = if args.projects.is_empty() {
         Vec::new()
@@ -1373,6 +1371,16 @@ fn worktree_requested(args: &AddArgs) -> bool {
     args.worktree_branch.is_some()
 }
 
+fn reject_repo_bases_without_worktree(args: &AddArgs) -> Result<()> {
+    if !args.repo_bases.is_empty() && !worktree_requested(args) {
+        bail!(
+            "--repo-base requires --worktree\n\
+             Tip: aoe add /path --project repoB -w -b --repo-base repoB=develop"
+        );
+    }
+    Ok(())
+}
+
 fn reject_ambiguous_worktree_path(args: &AddArgs) -> Result<()> {
     if args.path.is_some() {
         return Ok(());
@@ -1734,8 +1742,9 @@ fn resolve_sandbox_image(
 #[cfg(test)]
 mod tests {
     use super::{
-        explicit_worktree_branch, override_launch_binary, reject_ambiguous_worktree_path,
-        parse_repo_base, resolve_sandbox_image, worktree_requested, AddArgs,
+        explicit_worktree_branch, override_launch_binary, parse_repo_base,
+        reject_ambiguous_worktree_path, reject_repo_bases_without_worktree, resolve_sandbox_image,
+        worktree_requested, AddArgs,
     };
     use crate::session::config::SessionConfig;
     use clap::Parser;
@@ -1799,6 +1808,19 @@ mod tests {
             .unwrap()
             .add;
         assert!(reject_ambiguous_worktree_path(&args).is_ok());
+    }
+
+    #[test]
+    fn repo_base_accepts_derived_worktree_branch() {
+        let derived = TestCli::try_parse_from(["test", "-w", "-b", "--repo-base", "api=develop"])
+            .unwrap()
+            .add;
+        assert!(reject_repo_bases_without_worktree(&derived).is_ok());
+
+        let absent = TestCli::try_parse_from(["test", "--repo-base", "api=develop"])
+            .unwrap()
+            .add;
+        assert!(reject_repo_bases_without_worktree(&absent).is_err());
     }
 
     #[test]

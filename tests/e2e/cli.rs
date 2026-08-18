@@ -1,4 +1,4 @@
-use serial_test::parallel;
+use serial_test::{parallel, serial};
 use std::path::Path;
 use std::process::Command;
 

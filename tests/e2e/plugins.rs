@@ -279,7 +279,7 @@ fn test_tui_manager_reapprove_and_uninstall_local_plugin() {
 id = "acme.tui"
 name = "Tui Test"
 version = "0.1.0"
-api_version = 2
+api_version = 14
 capabilities = ["net"]
 "#,
     )
@@ -294,10 +294,11 @@ capabilities = ["net"]
         .join("plugins")
         .join("acme.tui")
         .join("aoe-plugin.toml");
-    let text = std::fs::read_to_string(&manifest).unwrap().replace(
+    let mut text = std::fs::read_to_string(&manifest).unwrap().replace(
         "capabilities = [\"net\"]",
         "capabilities = [\"net\", \"notifications\"]",
     );
+    text.push_str("\n[[branch_transforms]]\npattern = '-'\nreplacement = '/'\n");
     std::fs::write(&manifest, text).unwrap();
 
     h.spawn_tui();
@@ -310,6 +311,7 @@ capabilities = ["net"]
     h.send_keys("a");
     h.wait_for(" Approve plugin ");
     h.assert_screen_contains("notifications");
+    h.assert_screen_contains("Can transform automatic branch names");
     // The decision keys are a pinned footer: they must be visible no matter
     // how tall the disclosure body is.
     h.assert_screen_contains("y approve");

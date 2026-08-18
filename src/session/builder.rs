@@ -1127,7 +1127,9 @@ where
         return Ok(Some(branch));
     }
 
-    let transformed = transform(&branch_name_from_title(final_title))?;
+    let derived = branch_name_from_title(final_title);
+    validate_resolved_worktree_branch(&derived)?;
+    let transformed = transform(&derived)?;
     validate_resolved_worktree_branch(&transformed)?;
 
     if !create_new_branch {
@@ -1536,6 +1538,29 @@ mod tests {
         .unwrap();
 
         assert_eq!(branch.as_deref(), Some("fix-login-flow"));
+    }
+
+    #[test]
+    fn test_oversized_derived_branch_fails_before_plugin_transform() {
+        let transform_called = std::cell::Cell::new(false);
+        let error = resolve_effective_worktree_branch_with_transform(
+            true,
+            None,
+            &"a".repeat(MAX_BRANCH_OUTPUT_BYTES + 1),
+            false,
+            &HashSet::new(),
+            |_| {
+                transform_called.set(true);
+                Ok("short".to_string())
+            },
+        )
+        .unwrap_err();
+
+        assert!(!transform_called.get());
+        assert_eq!(
+            error.downcast_ref::<BranchTransformError>(),
+            Some(&BranchTransformError::InvalidResolvedBranch)
+        );
     }
 
     #[test]

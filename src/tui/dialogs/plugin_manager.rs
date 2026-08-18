@@ -353,6 +353,18 @@ fn wrapped_rows_total(lines: &[Line], width: u16) -> u16 {
         .fold(0u16, u16::saturating_add)
 }
 
+fn branch_transform_disclosure_line(
+    uses_branch_transforms: bool,
+    theme: &Theme,
+) -> Option<Line<'static>> {
+    uses_branch_transforms.then(|| {
+        Line::from(Span::styled(
+            "Can transform automatic branch names; explicit overrides are unaffected.",
+            Style::default().fg(theme.waiting),
+        ))
+    })
+}
+
 fn setting_type_label(t: aoe_plugin_api::SettingType) -> &'static str {
     match t {
         aoe_plugin_api::SettingType::String => "string",
@@ -1551,6 +1563,10 @@ impl PluginManagerDialog {
                 Style::default().fg(theme.dimmed),
             )));
         }
+        if let Some(line) = branch_transform_disclosure_line(consent.uses_branch_transforms, theme)
+        {
+            lines.push(line);
+        }
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             "Approving trusts this plugin; a worker and build steps run without OS sandboxing.",
@@ -1621,6 +1637,10 @@ impl PluginManagerDialog {
                 format!("UI slots: {}", slots.join(", ")),
                 Style::default().fg(theme.dimmed),
             )));
+        }
+        if let Some(line) = branch_transform_disclosure_line(consent.uses_branch_transforms, theme)
+        {
+            lines.push(line);
         }
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
@@ -2177,7 +2197,8 @@ impl PluginManagerDialog {
 
 #[cfg(test)]
 mod wrapped_rows_tests {
-    use super::{wrapped_rows, wrapped_rows_total};
+    use super::{branch_transform_disclosure_line, wrapped_rows, wrapped_rows_total};
+    use crate::tui::styles::Theme;
     use ratatui::prelude::*;
 
     fn line(s: &str) -> Line<'static> {
@@ -2218,5 +2239,17 @@ mod wrapped_rows_tests {
     fn totals_sum_per_line() {
         let lines = [line("alpha bravo"), line(""), line("x")];
         assert_eq!(wrapped_rows_total(&lines, 7), 4);
+    }
+
+    #[test]
+    fn branch_transform_disclosure_is_explicit() {
+        let theme = Theme::default();
+        assert!(branch_transform_disclosure_line(false, &theme).is_none());
+        assert_eq!(
+            branch_transform_disclosure_line(true, &theme)
+                .expect("enabled disclosure")
+                .to_string(),
+            "Can transform automatic branch names; explicit overrides are unaffected."
+        );
     }
 }

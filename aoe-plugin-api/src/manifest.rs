@@ -1017,7 +1017,12 @@ impl PluginManifest {
                 self.branch_transforms.len()
             ),
         );
-        for (i, transform) in self.branch_transforms.iter().enumerate() {
+        for (i, transform) in self
+            .branch_transforms
+            .iter()
+            .enumerate()
+            .take(MAX_BRANCH_TRANSFORMS)
+        {
             check(
                 !transform.pattern.is_empty(),
                 format!("branch_transforms[{i}].pattern must not be empty"),
